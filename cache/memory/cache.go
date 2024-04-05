@@ -72,6 +72,6 @@ func (c *CacheInMemory) Set(uuid string, profile *aggregate.Profile, duration ti
 		<-time.After(duration * time.Second)
 
 		delete(c.elements, uuid)
-		fmt.Println(fmt.Sprintf("Dropped cache for uuid: %v", uuid))
+		fmt.Printf("Dropped cache for uuid: %v", uuid)
 	}(ctx)
 }

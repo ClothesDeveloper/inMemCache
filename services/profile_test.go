@@ -21,7 +21,11 @@ func Test_AddOrder(t *testing.T) {
 		UpdatedAt: time.Time{},
 	}
 
-	profileServ.AddOrder(&profile, order)
+	err := profileServ.AddOrder(&profile, order)
+	if err != nil {
+		fmt.Printf("Error on add order to profile occured %v", err)
+		return
+	}
 	orders, _ := profileServ.GetOrdersList(profile.UUID)
 
 	var got entity.Order
@@ -45,9 +49,14 @@ func Test_Order_In_Profile(t *testing.T) {
 	}
 
 	go func() {
-		profileServ.AddOrder(&profile, order)
+		err := profileServ.AddOrder(&profile, order)
+		fmt.Printf("Error on add order to profile occured %v", err)
 	}()
-	profileServ.AddOrder(&profile, order)
+	err := profileServ.AddOrder(&profile, order)
+	if err != nil {
+		fmt.Printf("Error on add order to profile occured %v", err)
+		return
+	}
 	time.Sleep(time.Second * 1)
 	orders, _ := profileServ.GetOrdersList(profile.UUID)
 
@@ -75,7 +84,11 @@ func Test_AddOrder_WithExpiredCache(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	profileServ.AddOrder(&profile, order)
+	err := profileServ.AddOrder(&profile, order)
+	if err != nil {
+		fmt.Printf("Error on add order to profile occured %v", err)
+		return
+	}
 
 	time.Sleep(3 * time.Second)
 	orders, _ := profileServ.GetOrdersList(profile.UUID)
@@ -94,7 +107,11 @@ func Test_Delete_Order(t *testing.T) {
 		UpdatedAt: time.Time{},
 	}
 
-	profileServ.AddOrder(&profile, order)
+	err := profileServ.AddOrder(&profile, order)
+	if err != nil {
+		fmt.Printf("Error on add order to profile occured %v", err)
+		return
+	}
 
 	secondOrder := entity.Order{
 		UUID:      "test2",
@@ -102,7 +119,11 @@ func Test_Delete_Order(t *testing.T) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	profileServ.AddOrder(&profile, secondOrder)
+	err = profileServ.AddOrder(&profile, secondOrder)
+	if err != nil {
+		fmt.Printf("Error on add order to profile occured %v", err)
+		return
+	}
 
 	profileServ.DeleteOrder(profile.UUID, order)
 
