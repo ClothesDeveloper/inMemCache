@@ -12,7 +12,7 @@ type CacheInMemory struct {
 	ctx       context.Context
 	cancelCtx context.CancelFunc
 	elements  map[string]*CacheElement
-	mx        sync.Mutex
+	mx        sync.RWMutex
 }
 
 type CacheElement struct {
@@ -29,6 +29,7 @@ func New() *CacheInMemory {
 	}
 }
 
+// Cleanup removes expired cache
 func (c *CacheInMemory) Cleanup() {
 	c.mx.Lock()
 	defer c.mx.Unlock()
