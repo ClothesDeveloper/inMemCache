@@ -9,10 +9,11 @@ import (
 )
 
 type CacheInMemory struct {
-	ctx       context.Context
-	cancelCtx context.CancelFunc
-	elements  map[string]*CacheElement
-	mx        sync.RWMutex
+	ctx               context.Context
+	cancelCtx         context.CancelFunc
+	expiredCachesChan chan string
+	elements          map[string]*CacheElement
+	rwMx              sync.RWMutex
 }
 
 type CacheElement struct {
@@ -22,28 +23,36 @@ type CacheElement struct {
 
 func New() *CacheInMemory {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &CacheInMemory{
-		ctx:       ctx,
-		elements:  make(map[string]*CacheElement),
-		cancelCtx: cancel,
+
+	instance := &CacheInMemory{
+		ctx:               ctx,
+		elements:          make(map[string]*CacheElement),
+		expiredCachesChan: make(chan string, 1),
+		cancelCtx:         cancel,
+	}
+
+	go func(ctx context.Context) {
+		fmt.Println("Cleanup instance is started")
+		instance.Cleanup()
+	}(ctx)
+
+	return instance
+}
+
+// Cleanup removes expired caches
+func (c *CacheInMemory) Cleanup() {
+	for uuid := range c.expiredCachesChan {
+		c.rwMx.Lock()
+
+		delete(c.elements, uuid)
+		fmt.Printf("Dropped cache for uuid: %v", uuid)
+		c.rwMx.Unlock()
 	}
 }
 
-// Cleanup removes expired cache
-func (c *CacheInMemory) Cleanup() {
-	c.mx.Lock()
-	defer c.mx.Unlock()
-	c.cancelCtx()
-	ctx, cancel := context.WithCancel(context.Background())
-	c.ctx = ctx
-	c.cancelCtx = cancel
-
-	c.elements = make(map[string]*CacheElement)
-}
-
 func (c *CacheInMemory) Get(uuid string) *aggregate.Profile {
-	c.mx.Lock()
-	defer c.mx.Unlock()
+	c.rwMx.Lock()
+	defer c.rwMx.Unlock()
 	if element, ok := c.elements[uuid]; ok {
 		return element.profile
 	}
@@ -52,8 +61,8 @@ func (c *CacheInMemory) Get(uuid string) *aggregate.Profile {
 }
 
 func (c *CacheInMemory) Set(uuid string, profile *aggregate.Profile, duration time.Duration) {
-	c.mx.Lock()
-	defer c.mx.Unlock()
+	c.rwMx.Lock()
+	defer c.rwMx.Unlock()
 	element := c.elements[uuid]
 	//cancelling previous goroutine, to prevent deleting new value
 	if element != nil {
@@ -68,11 +77,9 @@ func (c *CacheInMemory) Set(uuid string, profile *aggregate.Profile, duration ti
 	}
 	c.elements[uuid] = newElement
 
-	//goroutine drops cache by uuid
+	//goroutine sends expired cache to expired cache chan
 	go func(ctx context.Context) {
-		<-time.After(duration * time.Second)
-
-		delete(c.elements, uuid)
-		fmt.Printf("Dropped cache for uuid: %v", uuid)
+		<-time.After(duration)
+		c.expiredCachesChan <- uuid
 	}(ctx)
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const profileCacheTTL = 2
+const profileCacheTTL = 2 * time.Second
 
 type Repository struct {
 	cache cache.Cache
@@ -21,7 +21,7 @@ func NewRepository() profile.ProfileRepository {
 }
 
 func (r *Repository) Add(profile *aggregate.Profile) {
-	r.cache.Set(profile.UUID, profile, time.Duration(profileCacheTTL))
+	r.cache.Set(profile.UUID, profile, profileCacheTTL)
 }
 
 func (r *Repository) Get(uuid string) *aggregate.Profile {

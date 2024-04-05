@@ -132,7 +132,3 @@ func Test_Delete_Order(t *testing.T) {
 	assert.Equal(t, len(userCreatedOrders), 1)
 	assert.Equal(t, *userCreatedOrders[0], secondOrder)
 }
-
-//func Test_Update_Get_Simultaneously(t *testing.T) {
-//	TODO: try to simulate race condition
-//}
