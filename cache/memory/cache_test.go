@@ -1,10 +1,10 @@
 package memory
 
 import (
-	"fmt"
 	"gotest.tools/v3/assert"
 	"inMemoryCache/aggregate"
 	"inMemoryCache/entity"
+	"log"
 	"strconv"
 	"testing"
 	"time"
@@ -25,7 +25,7 @@ func Test_Cache_Expires_Properly(t *testing.T) {
 	profile, err := aggregate.NewProfile("testName")
 	profile.Orders = orders
 	if err != nil {
-		fmt.Println("error on creating new profile")
+		log.Println(err)
 	}
 	cache.Set(profile.UUID, profile, 1*time.Second)
 	time.Sleep(time.Second * 2)
@@ -104,4 +104,36 @@ func Test_Concurrent_Sets_Not_Allowed(t *testing.T) {
 	}
 
 	time.Sleep(1 * time.Second)
+}
+
+func Test_Profile_IsNotModifiedInCache(t *testing.T) {
+	cache := New()
+
+	fakeOrders := []*entity.Order{
+		{
+			UUID:      "123",
+			Value:     111,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		{
+			UUID:      "4546",
+			Value:     233,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+	}
+
+	profile, err := aggregate.NewProfile("dude")
+	if err != nil {
+		log.Println(err)
+	}
+
+	profile.Orders = fakeOrders
+
+	cache.Set(profile.UUID, profile, 5*time.Second)
+	profile.Name = "chopo"
+
+	profileFromCache, _ := cache.Get(profile.UUID)
+	assert.Equal(t, profileFromCache.Name, "dude")
 }
