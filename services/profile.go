@@ -12,6 +12,8 @@ type ProfileService struct {
 	profileRepository profile.ProfileRepository
 }
 
+var ErrProfileNotExist = errors.New("profile does not exist")
+
 func NewProfileService() *ProfileService {
 	return &ProfileService{
 		profileRepository: memory.NewRepository(),
@@ -19,9 +21,9 @@ func NewProfileService() *ProfileService {
 }
 
 func (ps *ProfileService) AddOrder(profile *aggregate.Profile, order entity.Order) error {
-	profileInfo := ps.profileRepository.Get(profile.UUID)
-	if profileInfo == nil {
-		profileInfo = profile
+	profileInfo, err := ps.profileRepository.Get(profile.UUID)
+	if errors.Is(err, memory.ErrProfileNotFound) {
+		profileInfo = *profile
 	}
 
 	if profileInfo.IsOrderInList(order) {
@@ -33,8 +35,8 @@ func (ps *ProfileService) AddOrder(profile *aggregate.Profile, order entity.Orde
 }
 
 func (ps *ProfileService) UpdateOrder(profileUUID string, order entity.Order) error {
-	profileInfo := ps.profileRepository.Get(profileUUID)
-	if profileInfo == nil {
+	profileInfo, err := ps.profileRepository.Get(profileUUID)
+	if errors.Is(err, memory.ErrProfileNotFound) {
 		return errors.New("profile is not found")
 	}
 	profileOrders := profileInfo.Orders
@@ -52,8 +54,12 @@ func (ps *ProfileService) UpdateOrder(profileUUID string, order entity.Order) er
 	return errors.New("didn't find order to update")
 }
 
-func (ps *ProfileService) DeleteOrder(profileUUID string, order entity.Order) {
-	profile := ps.profileRepository.Get(profileUUID)
+func (ps *ProfileService) DeleteOrder(profileUUID string, order entity.Order) error {
+	profile, err := ps.profileRepository.Get(profileUUID)
+	if errors.Is(err, memory.ErrProfileNotFound) {
+		return errors.New("Profile does not exist")
+	}
+
 	savedOrders := profile.Orders
 	for index, savedOrder := range savedOrders {
 		if order == *savedOrder {
@@ -62,12 +68,14 @@ func (ps *ProfileService) DeleteOrder(profileUUID string, order entity.Order) {
 	}
 
 	ps.profileRepository.Add(profile)
+
+	return nil
 }
 
 func (ps *ProfileService) GetOrdersList(profileUUID string) ([]*entity.Order, error) {
-	p := ps.profileRepository.Get(profileUUID)
-	if p == nil {
-		return []*entity.Order{}, errors.New("profile does not have orders")
+	p, err := ps.profileRepository.Get(profileUUID)
+	if errors.Is(err, memory.ErrProfileNotFound) {
+		return []*entity.Order{}, ErrProfileNotExist
 	}
 
 	return p.Orders, nil
