@@ -3,7 +3,6 @@ package memory
 import (
 	"context"
 	"errors"
-	"fmt"
 	"inMemoryCache/aggregate"
 	"sync"
 	"time"
@@ -18,12 +17,12 @@ type CacheInMemory struct {
 	cancelCtx         context.CancelFunc
 	expiredCachesChan chan string
 	elements          map[string]*CacheElement
-	rwMx              sync.RWMutex
+	mu                sync.RWMutex
 }
 
 type CacheElement struct {
-	profile              aggregate.Profile
-	cancelClearCacheFunc func()
+	profile   aggregate.Profile
+	expiresAt time.Time
 }
 
 func New() *CacheInMemory {
@@ -37,8 +36,14 @@ func New() *CacheInMemory {
 	}
 
 	go func(ctx context.Context) {
-		fmt.Println("Cleanup instance is started")
-		instance.cleanup()
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				instance.cleanup()
+			}
+		}
 	}(ctx)
 
 	return instance
@@ -46,18 +51,19 @@ func New() *CacheInMemory {
 
 // Cleanup removes expired caches
 func (c *CacheInMemory) cleanup() {
-	for uuid := range c.expiredCachesChan {
-		c.rwMx.Lock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-		delete(c.elements, uuid)
-		fmt.Printf("Dropped cache for uuid: %v", uuid)
-		c.rwMx.Unlock()
+	for uuid, element := range c.elements {
+		if element.expiresAt.Before(time.Now()) {
+			delete(c.elements, uuid)
+		}
 	}
 }
 
 func (c *CacheInMemory) Get(uuid string) (aggregate.Profile, error) {
-	c.rwMx.Lock()
-	defer c.rwMx.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if element, ok := c.elements[uuid]; ok {
 		return element.profile, nil
 	}
@@ -66,25 +72,13 @@ func (c *CacheInMemory) Get(uuid string) (aggregate.Profile, error) {
 }
 
 func (c *CacheInMemory) Set(uuid string, profile aggregate.Profile, duration time.Duration) {
-	c.rwMx.Lock()
-	defer c.rwMx.Unlock()
-	element := c.elements[uuid]
-	//cancelling previous goroutine, to prevent deleting new value
-	if element != nil {
-		element.cancelClearCacheFunc()
-	}
-
-	ctx, cancel := context.WithCancel(c.ctx)
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	newElement := &CacheElement{
-		profile:              profile,
-		cancelClearCacheFunc: cancel,
+		profile:   profile,
+		expiresAt: time.Now().Add(duration),
 	}
-	c.elements[uuid] = newElement
 
-	//goroutine sends expired cache to expired cache chan
-	go func(ctx context.Context) {
-		<-time.After(duration)
-		c.expiredCachesChan <- uuid
-	}(ctx)
+	c.elements[uuid] = newElement
 }

@@ -50,36 +50,36 @@ func Test_Cleanup(t *testing.T) {
 	testCases := []struct {
 		orders      []*entity.Order
 		profileName string
-		duration    uint64
+		duration    time.Duration
 	}{
 		{
 			orders:      fakeOrders,
 			profileName: "profile1",
-			duration:    3,
+			duration:    3 * time.Second,
 		},
 		{
 			orders:      fakeOrders,
 			profileName: "profile2",
-			duration:    3,
+			duration:    10 * time.Second,
 		},
 		{
 			orders:      fakeOrders,
 			profileName: "profile3",
-			duration:    3,
+			duration:    3 * time.Second,
 		},
 	}
 
 	for _, testCase := range testCases {
 		profile, _ := aggregate.NewProfile(testCase.profileName)
-		cache.Set(profile.UUID, profile, time.Duration(testCase.duration))
+		cache.Set(profile.UUID, profile, testCase.duration)
 	}
 
 	length := len(cache.elements)
 	assert.Equal(t, length, 3)
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(3500 * time.Millisecond)
 	lengthAfterCleanup := len(cache.elements)
-	assert.Equal(t, lengthAfterCleanup, 0)
+	assert.Equal(t, lengthAfterCleanup, 1)
 }
 
 func Test_Concurrent_Sets_Not_Allowed(t *testing.T) {
