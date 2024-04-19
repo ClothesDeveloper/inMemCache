@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"inMemoryCache/aggregate"
+	"inMemoryCache/entity"
 	"sync"
 	"time"
 )
@@ -74,6 +75,14 @@ func (c *CacheInMemory) Get(uuid string) (aggregate.Profile, error) {
 func (c *CacheInMemory) Set(uuid string, profile aggregate.Profile, duration time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	orders := make([]*entity.Order, len(profile.Orders))
+	for index, order := range profile.Orders {
+		orderCopy := *order
+		orders[index] = &orderCopy
+	}
+
+	profile.Orders = orders
 
 	newElement := &CacheElement{
 		profile:   profile,

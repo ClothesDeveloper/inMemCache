@@ -137,3 +137,35 @@ func Test_Profile_IsNotModifiedInCache(t *testing.T) {
 	profileFromCache, _ := cache.Get(profile.UUID)
 	assert.Equal(t, profileFromCache.Name, "dude")
 }
+
+func Test_ProfileOrders_NotModifiedInCache(t *testing.T) {
+	cache := New()
+	fakeOrders := []*entity.Order{
+		{
+			UUID:      "123",
+			Value:     111,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		{
+			UUID:      "4546",
+			Value:     233,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+	}
+
+	profile, err := aggregate.NewProfile("dude")
+	if err != nil {
+		log.Println(err)
+	}
+
+	profile.Orders = fakeOrders
+
+	cache.Set(profile.UUID, profile, 5*time.Second)
+	fakeOrders[0].Value = 2
+
+	profileFromCache, _ := cache.Get(profile.UUID)
+
+	assert.Equal(t, profileFromCache.Orders[0].Value, 111)
+}
