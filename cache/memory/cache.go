@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"context"
 	"errors"
 	"inMemoryCache/aggregate"
 	"inMemoryCache/entity"
@@ -14,8 +13,6 @@ var (
 )
 
 type CacheInMemory struct {
-	ctx               context.Context
-	cancelCtx         context.CancelFunc
 	expiredCachesChan chan string
 	elements          map[string]*CacheElement
 	mu                sync.RWMutex
@@ -27,16 +24,12 @@ type CacheElement struct {
 }
 
 func New() *CacheInMemory {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	instance := &CacheInMemory{
-		ctx:               ctx,
 		elements:          make(map[string]*CacheElement),
 		expiredCachesChan: make(chan string, 1),
-		cancelCtx:         cancel,
 	}
 
-	go func(ctx context.Context) {
+	go func() {
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 		for {
@@ -45,7 +38,7 @@ func New() *CacheInMemory {
 				instance.cleanup()
 			}
 		}
-	}(ctx)
+	}()
 
 	return instance
 }
@@ -66,6 +59,10 @@ func (c *CacheInMemory) Get(uuid string) (aggregate.Profile, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if element, ok := c.elements[uuid]; ok {
+		if element.expiresAt.Before(time.Now()) {
+			return aggregate.Profile{}, ErrValueNotFound
+		}
+
 		return element.profile, nil
 	}
 
