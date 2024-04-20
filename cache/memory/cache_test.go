@@ -210,3 +210,69 @@ func Test_CanNotGetExpiredCacheValue(t *testing.T) {
 
 	assert.Equal(t, err, ErrValueNotFound)
 }
+
+func Test_ProfileNotMutatedWhenInCache(t *testing.T) {
+	cache := New()
+
+	fakeOrders := []*entity.Order{
+		{
+			UUID:      "123",
+			Value:     111,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		{
+			UUID:      "4546",
+			Value:     233,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+	}
+
+	profile, err := aggregate.NewProfile("dude")
+	if err != nil {
+		log.Println(err)
+	}
+
+	profile.Orders = fakeOrders
+
+	cache.Set(profile.UUID, profile, 10*time.Minute)
+	profileFromCache, err := cache.Get(profile.UUID)
+	profileFromCache.Name = "something"
+
+	secondProfileFromCache, err := cache.Get(profile.UUID)
+	assert.Equal(t, secondProfileFromCache.Name, "dude")
+}
+
+func Test_ProfileOrdersNotMutatedWhenInCachet(t *testing.T) {
+	cache := New()
+
+	fakeOrders := []*entity.Order{
+		{
+			UUID:      "123",
+			Value:     111,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		{
+			UUID:      "4546",
+			Value:     233,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+	}
+
+	profile, err := aggregate.NewProfile("dude")
+	if err != nil {
+		log.Println(err)
+	}
+
+	profile.Orders = fakeOrders
+
+	cache.Set(profile.UUID, profile, 10*time.Minute)
+	profileFromCache, err := cache.Get(profile.UUID)
+	profileFromCache.Orders[0].Value = "testVAL"
+
+	secondProfileFromCache, err := cache.Get(profile.UUID)
+	assert.Equal(t, secondProfileFromCache.Orders[0].Value, 111)
+}

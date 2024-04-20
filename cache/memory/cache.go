@@ -63,7 +63,7 @@ func (c *CacheInMemory) Get(uuid string) (aggregate.Profile, error) {
 			return aggregate.Profile{}, ErrValueNotFound
 		}
 
-		return element.profile, nil
+		return c.fromCacheElement(*element), nil
 	}
 
 	return aggregate.Profile{}, ErrValueNotFound
@@ -73,6 +73,12 @@ func (c *CacheInMemory) Set(uuid string, profile aggregate.Profile, duration tim
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	newElement := c.toCacheElement(profile, duration)
+
+	c.elements[uuid] = newElement
+}
+
+func (c *CacheInMemory) toCacheElement(profile aggregate.Profile, duration time.Duration) *CacheElement {
 	orders := make([]*entity.Order, len(profile.Orders))
 	for index, order := range profile.Orders {
 		orderCopy := *order
@@ -81,10 +87,22 @@ func (c *CacheInMemory) Set(uuid string, profile aggregate.Profile, duration tim
 
 	profile.Orders = orders
 
-	newElement := &CacheElement{
+	return &CacheElement{
 		profile:   profile,
 		expiresAt: time.Now().Add(duration),
 	}
+}
 
-	c.elements[uuid] = newElement
+func (c *CacheInMemory) fromCacheElement(element CacheElement) aggregate.Profile {
+	profile := element.profile
+
+	orders := make([]*entity.Order, len(element.profile.Orders))
+	for index, order := range element.profile.Orders {
+		orderCopy := *order
+		orders[index] = &orderCopy
+	}
+
+	profile.Orders = orders
+
+	return profile
 }
