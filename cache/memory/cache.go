@@ -45,19 +45,26 @@ func New() *CacheInMemory {
 
 // Cleanup removes expired caches
 func (c *CacheInMemory) cleanup() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
 
+	expiredElements := make([]string, 1)
 	for uuid, element := range c.elements {
 		if element.expiresAt.Before(time.Now()) {
-			delete(c.elements, uuid)
+			expiredElements = append(expiredElements, uuid)
 		}
+	}
+	c.mu.RUnlock()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, uuid := range expiredElements {
+		delete(c.elements, uuid)
 	}
 }
 
 func (c *CacheInMemory) Get(uuid string) (aggregate.Profile, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if element, ok := c.elements[uuid]; ok {
 		if element.expiresAt.Before(time.Now()) {
 			return aggregate.Profile{}, ErrValueNotFound
