@@ -56,10 +56,10 @@ func (c *CacheInMemory) cleanup() {
 	c.mu.RUnlock()
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	for _, uuid := range expiredElements {
 		delete(c.elements, uuid)
 	}
+	c.mu.Unlock()
 }
 
 func (c *CacheInMemory) Get(uuid string) (aggregate.Profile, error) {
